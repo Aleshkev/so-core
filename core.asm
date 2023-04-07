@@ -1,0 +1,4 @@
+global core
+
+core:
+  ret
