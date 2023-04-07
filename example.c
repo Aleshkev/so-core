@@ -2,6 +2,7 @@
 #include <inttypes.h>
 #include <pthread.h>
 #include <stddef.h>
+#include <stdio.h>
 
 // Ustalamy liczbę rdzeni.
 #define N 2
@@ -32,11 +33,12 @@ typedef struct {
 static volatile int wait = 0;
 
 // Ta funkcja uruchamia obliczenie na jednym rdzeniu.
-static void * core_thread(void *params) {
-  core_call_t *cp = (core_call_t*)params;
+static void *core_thread(void *params) {
+  core_call_t *cp = (core_call_t *)params;
 
   // Wszystkie rdzenie powinny wystartować równocześnie.
-  while (wait == 0);
+  while (wait == 0)
+    ;
 
   cp->result = core(cp->n, cp->p);
 
@@ -47,9 +49,8 @@ int main() {
   static pthread_t tid[N];
   static core_call_t params[N];
   static const char *computation[N] = {
-    "01234n+P56789E-+D+*G*1n-+S2ED+E1-+75+-BC",
-    "01234n+P56789E-+D+*G*1n-+S2ED+E1-+75+-BC"
-  };
+      "01234n+P56789E-+D+*G*1n-+S2ED+E1-+75+-BC",
+      "01234n+P56789E-+D+*G*1n-+S2ED+E1-+75+-BC"};
   static const uint64_t result[N] = {112, 56};
 
   for (size_t n = 0; n < N; ++n) {
@@ -59,13 +60,18 @@ int main() {
   }
 
   for (size_t n = 0; n < N; ++n)
-    assert(0 == pthread_create(&tid[n], NULL, &core_thread, (void*)&params[n]));
+    assert(0 ==
+           pthread_create(&tid[n], NULL, &core_thread, (void *)&params[n]));
 
-  wait = 1; // Wystartuj rdzenie.
+  wait = 1;  // Wystartuj rdzenie.
 
-  for (size_t n = 0; n < N; ++n)
-    assert(0 == pthread_join(tid[n], NULL));
+  for (size_t n = 0; n < N; ++n) assert(0 == pthread_join(tid[n], NULL));
 
-  for (size_t n = 0; n < N; ++n)
-    assert(params[n].result == result[n]);
+  for (size_t n = 0; n < N; ++n) {
+    printf(
+        "params[%lu] = {.n = %lu, .result = %lu, .p = '%s'}, result[%lu] = %lu\n",
+        n, params[n].n, params[n].result, params[n].p, n, result[n]);
+  }
+
+  for (size_t n = 0; n < N; ++n) assert(params[n].result == result[n]);
 }
