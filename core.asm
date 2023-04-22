@@ -1,4 +1,5 @@
 
+  ;     Used in synchronization.
 section .data
   align 8
 A:
@@ -8,24 +9,36 @@ B:
 
 section .text
 
-%ifdef DEBUGM
+  ;     Debug logging.
+%ifdef  DEBUGM
   %include "debug_macros.asm"
 %else
-  %macro dputs 1
+  %macro  dputs 1
   %endmacro
-  %macro dprintall 0
+  %macro  dprintall 0
   %endmacro
 %endif
 
+  ;     Aligns rsp to be a valid call boundary.
+%macro  align_rsp 0
+  mov   r15, rsp
+  and   r15, 0xf
+  sub   rsp, r15
+%endmacro
+%macro  unalign_rsp 0
+  add   rsp, r15
+%endmacro
+
+extern  get_value
+extern  put_value
+
+  ;
   ;     uint64_t core(uint64_t n, char const *p);
+  ;
 global  core
 core:
-
   push  rbp
   push  rbx
-  push  r12
-  push  r13
-  push  r14
   push  r15
 
   ;     Base & stack pointers.
@@ -125,57 +138,49 @@ core:
   push  r8
   jmp   .next
 
-%macro align_rsp 0
-  mov   r15, rsp
-  and   r15, 0xf
-  sub   rsp, r15
-%endmacro
 
-%macro unalign_rsp 0
-  add   rsp, r15
-%endmacro
-extern  get_value
-extern  put_value
 
 .do_get:
   dputs "do_get"
-  mov   r12, rdi
-  mov   r13, rsi
-  mov   r14, rcx
+  push  rdi
+  push  rsi
+  push  rcx
 
   align_rsp
   mov   rdi, n_rdi
   call  get_value
   unalign_rsp
 
-  mov   rdi, r12
-  mov   rsi, r13
-  mov   rcx, r14
+  pop  rcx
+  pop  rsi
+  pop  rdi
 
   push  rax
   jmp   .next
 
 .do_put:
   dputs "do_put"
+  pop   rax
 
-  mov   r12, rdi
-  mov   r13, rsi
-  mov   r14, rcx
+  push  rdi
+  push  rsi
+  push  rcx
 
   mov   rdi, n_rdi
-  pop   rsi
+  mov   rsi, rax
   align_rsp
   call  put_value
   unalign_rsp
 
-  mov   rdi, r12
-  mov   rsi, r13
-  mov   rcx, r14
+  pop  rcx
+  pop  rsi
+  pop  rdi
 
   jmp   .next
 
 .do_sync:
   dputs "do_sync"
+
 %define m_r8 r8
 %define v_r9 r9
   pop   m_r8
@@ -188,10 +193,10 @@ extern  put_value
   mov   qword [rel A + 8 * n_rdi], m_r8
 
   ;     wait_until A[m] == n, then A[m] = -1
-.wait:
+.wait_until_wanted:
   mov   rax, n_rdi
   lock  cmpxchg [rel A + 8 * m_r8], r10
-  jne   .wait
+  jne   .wait_until_wanted
 
   ;     push B[m], B[m] = -1
   mov   rax, -1
@@ -199,31 +204,27 @@ extern  put_value
   push  rax
 
   ;     wait_until B[n] == -1
-.wait_2:
+.wait_until_consumed:
   mov   rax, -1
   lock cmpxchg [rel B + 8 * n_rdi], r10
-  jne .wait_2
+  jne   .wait_until_consumed
 
   jmp   .next
 
 .next:
-
   dprintall
   inc   i_rcx
   jmp   .iter_i
 
 .break:
   dputs "end"
+  dprintall
 
   pop   rax
-  dprintall
 
   mov   rsp, rbp
 
   pop   r15
-  pop   r14
-  pop   r13
-  pop   r12
   pop   rbx
   pop   rbp
 
