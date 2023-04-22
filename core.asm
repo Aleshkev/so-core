@@ -50,6 +50,7 @@ core:
 %define i_rcx rcx
   ;     rax, r8, r9 for temporary vars.
 
+
   xor   i_rcx, i_rcx
 .iter_i:
 
@@ -58,6 +59,7 @@ core:
   xor   c_rdx, c_rdx
   mov   c_dl, byte [p_rsi + i_rcx]
 
+  ;     Some of these will become long jumps, wasting ~6 bytes ;c
   cmp   c_dl, `\0`
   je    .break
   cmp   c_dl, `+`
@@ -83,17 +85,20 @@ core:
   cmp   c_dl, `S`
   je    .do_sync
 
+
 .do_const:
   dputs "do_const"
   lea   rax, [c_rdx - '0']
   push  rax
   jmp   .next
 
+
 .do_add:
   dputs "do_add"
   pop   rax
   add   qword [rsp], rax
   jmp   .next
+
 
 .do_mul:
   dputs "mul"
@@ -102,15 +107,18 @@ core:
   mov   qword [rsp], rax
   jmp   .next
 
+
 .do_neg:
   dputs "neg"
   neg   qword [rsp]
   jmp   .next
 
+
 .do_push_n:
   dputs "push_n"
   push  n_rdi
   jmp   .next
+
 
 .do_jmp:
   dputs "do_jmp"
@@ -120,15 +128,18 @@ core:
   lea   i_rcx, [i_rcx + rax]
   jmp   .next
 
+
 .do_pop:
   dputs "do_pop"
   pop   rax
   jmp   .next
 
+
 .do_dup:
   dputs "do_dup"
   push  qword [rsp]
   jmp   .next
+
 
 .do_swap:
   dputs "do_swap"
@@ -137,7 +148,6 @@ core:
   push  rax
   push  r8
   jmp   .next
-
 
 
 .do_get:
@@ -157,6 +167,7 @@ core:
 
   push  rax
   jmp   .next
+
 
 .do_put:
   dputs "do_put"
@@ -178,6 +189,7 @@ core:
 
   jmp   .next
 
+
 .do_sync:
   dputs "do_sync"
 
@@ -186,7 +198,8 @@ core:
   pop   m_r8
   pop   v_r9
 
-  mov   r10, -1
+  xor   r10, r10
+  dec   r10
 
   ;     B[n] = v, A[n] = m
   mov   qword [rel B + 8 * n_rdi], v_r9
@@ -199,17 +212,18 @@ core:
   jne   .wait_until_wanted
 
   ;     push B[m], B[m] = -1
-  mov   rax, -1
+  mov   rax, r10
   xchg  [rel B + 8 * m_r8], rax
   push  rax
 
   ;     wait_until B[n] == -1
 .wait_until_consumed:
-  mov   rax, -1
+  mov   rax, r10
   lock cmpxchg [rel B + 8 * n_rdi], r10
   jne   .wait_until_consumed
 
   jmp   .next
+
 
 .next:
   dprintall
