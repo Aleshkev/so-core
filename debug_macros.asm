@@ -41,7 +41,7 @@
   shr     rdx, 4                  ; Przesuń rdx w prawo o jedną cyfrę.
   loop    %%next_digit
 
-  mov     [rsp + 72], byte `\n`   ; Zakończ znakiem nowej linii. Intencjonalnie
+  mov     [rsp + 72], byte ` `   ; Zakończ znakiem nowej linii. Intencjonalnie
                                   ; nadpisuje na stosie niepotrzebną już wartość.
 
   mov     eax, 1                  ; SYS_WRITE
@@ -59,4 +59,103 @@
   popf
   add     rsp, 24
 %endmacro
+
+
+%macro pushaq 0
+  pushf
+  push    rax
+  push    rcx
+  push    rdx
+  push    rsi
+  push    rdi
+  push    r11
+%endmacro
+
+%macro popaq 0
+  pop     r11
+  pop     rdi
+  pop     rsi
+  pop     rdx
+  pop     rcx
+  pop     rax
+  popf
+%endmacro
+
+extern  puts
+extern  printf
+
+%macro dputs 1
+  jmp   %%z
+%%s:
+  db    %1, `\n`  ; Null-terminated string.
+%%z:
+  pushaq
+
+  cmp   rdi, 0
+  jne  %%end
+
+  mov     eax, 1                  ; SYS_WRITE
+  mov     edi, eax                ; STDOUT
+  lea     rsi, [rel %%s]      ; Napis jest w sekcji .text.
+  mov     edx, %%z - %%s  ; To jest długoś napisu.
+  syscall
+%%end:
+  popaq
+%endmacro
+
+%macro dprintall 0
+  pushaq
+    cmp   rdi, 0
+    jne  %%end2
+  popaq
+
+  prints "│ rax: ", rax
+  dputs `│`
+  prints "│ rcx: ", rcx
+  dputs `│`
+  prints "│ rdx: ", rdx
+  dputs `│`
+  prints "│ rbx: ", rbx
+  dputs `│`
+  prints "│ rsp: ", rsp
+  dputs `│`
+  prints "│ rbp: ", rbp
+  dputs `│`
+  prints "│ rsi: ", rsi
+  dputs `│`
+  prints "│ rdi: ", rdi
+  dputs `│`
+  prints "│ r8 : ", r8
+  dputs `│`
+  prints "│ r9 : ", r9
+  dputs "│"
+  dputs "└───────────────────────┘"
+
+  pushaq
+  lea rdx, [rsp + 7 * 8]
+  mov rcx, rbp
+  lea rcx, [rcx - 8]
+  %%loop:
+  cmp rcx, rdx
+  jl %%end
+
+;    prints "│ rcx: ", rcx
+;    dputs `│`
+;    prints "│ rsp: ", rsp
+;        dputs `│`
+
+  mov rax, qword [rcx]
+  prints "│ ", rax
+  dputs "│"
+
+  lea rcx, [rcx - 8]
+  jmp %%loop
+
+  %%end:
+  dputs ""
+
+  %%end2:
+  popaq
+%endmacro
+
 %endif
